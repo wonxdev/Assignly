@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Staff Dashboard - Assignly</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 
 <body>
@@ -123,8 +123,7 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js"></script>
+  <script src="../assets/js/app.js"></script>
   <script>
     let currentUser = null;
     let allAssignments = [];
@@ -135,32 +134,29 @@
 
       document.getElementById('userName').innerText = currentUser.full_name;
 
-      // Setup Subject Dropdowns
       const subSelect = document.getElementById('subject');
       const filSub = document.getElementById('filterSubject');
 
       const wajibOptGroup = document.createElement('optgroup');
       wajibOptGroup.label = "KELAS WAJIB";
-      window.WAJIB_SUBJECTS.forEach(s => wajibOptGroup.appendChild(new Option(s, s)));
+      window.WAJIB_SUBJECTS.forEach((subject) => wajibOptGroup.appendChild(new Option(subject, subject)));
       subSelect.appendChild(wajibOptGroup);
 
       const movingOptGroup = document.createElement('optgroup');
       movingOptGroup.label = "MOVING SUBJECTS";
-      window.MOVING_SUBJECTS.forEach(s => movingOptGroup.appendChild(new Option(s, s)));
+      window.MOVING_SUBJECTS.forEach((subject) => movingOptGroup.appendChild(new Option(subject, subject)));
       subSelect.appendChild(movingOptGroup);
 
-      // Re-fill filter dropdown
-      [...window.WAJIB_SUBJECTS, ...window.MOVING_SUBJECTS].sort().forEach(s => filSub.add(new Option(s, s)));
+      [...window.WAJIB_SUBJECTS, ...window.MOVING_SUBJECTS].sort().forEach((subject) => filSub.add(new Option(subject, subject)));
 
-      // Setup Class Dropdowns
       const clsSelect = document.getElementById('className');
       const filCls = document.getElementById('filterClass');
 
-      [10, 11, 12].forEach(g => {
-        "ABCDEFGHIJ".split("").forEach(l => {
-          const c = `${g}-${l}`;
-          clsSelect.add(new Option(c, c));
-          filCls.add(new Option(c, c));
+      [10, 11, 12].forEach((grade) => {
+        "ABCDEFGHIJ".split("").forEach((letter) => {
+          const className = `${grade}-${letter}`;
+          clsSelect.add(new Option(className, className));
+          filCls.add(new Option(className, className));
         });
       });
       clsSelect.add(new Option("MOVING", "MOVING"));
@@ -169,32 +165,24 @@
       await loadAssignments();
     }
 
-    // Logic: Auto-switch target based on subject
     document.getElementById('subject').onchange = (e) => {
-      const val = e.target.value;
+      const value = e.target.value;
       const clsSelect = document.getElementById('className');
       const guruField = document.getElementById('guruField');
 
-      if (window.MOVING_SUBJECTS.includes(val)) {
+      if (window.MOVING_SUBJECTS.includes(value)) {
         clsSelect.value = "MOVING";
-        clsSelect.disabled = true; // Force moving
+        clsSelect.disabled = true;
         guruField.style.display = "block";
       } else {
         clsSelect.disabled = false;
-        if (clsSelect.value === "MOVING") clsSelect.value = ""; // Reset if it was moving
+        if (clsSelect.value === "MOVING") clsSelect.value = "";
         guruField.style.display = "none";
       }
     };
 
     async function loadAssignments() {
-      const { data, error } = await supabase
-        .from('assignments')
-        .select('*')
-        .eq('teacher_id', currentUser.id)
-        .order('created_at', { ascending: false });
-
-      if (error) return;
-      allAssignments = data;
+      allAssignments = window.db.getAssignmentsForTeacher(currentUser.id);
       render();
     }
 
@@ -204,8 +192,8 @@
       const cls = document.getElementById('filterClass').value;
       grid.innerHTML = '';
 
-      const filtered = allAssignments.filter(a => {
-        return (sub === 'all' || a.subject === sub) && (cls === 'all' || a.class === cls);
+      const filtered = allAssignments.filter((assignment) => {
+        return (sub === 'all' || assignment.subject === sub) && (cls === 'all' || assignment.class === cls);
       });
 
       if (filtered.length === 0) {
@@ -213,7 +201,7 @@
         return;
       }
 
-      filtered.forEach(item => {
+      filtered.forEach((item) => {
         const card = document.createElement('div');
         card.className = 'card assignment-card animate-fade';
         card.innerHTML = `
@@ -260,53 +248,54 @@
         teacher_id: currentUser.id,
         title: document.getElementById('title').value,
         subject: document.getElementById('subject').value,
-        class: clsSelect.value, // Even if disabled, value is preserved
+        class: clsSelect.value,
         due_date: document.getElementById('dueDate').value,
         priority: document.getElementById('priority').value,
         description: document.getElementById('description').value,
         guru_pengampu: document.getElementById('guruPengampu').value
       };
 
-      const { error } = id ?
-        await supabase.from('assignments').update(payload).eq('id', id) :
-        await supabase.from('assignments').insert(payload);
+      if (id) {
+        window.db.updateAssignment(id, payload);
+      } else {
+        window.db.createAssignment(payload);
+      }
 
-      if (error) alert(error.message);
-      else { closeModal(); await loadAssignments(); }
+      closeModal();
+      await loadAssignments();
     };
 
     function editAssignment(id) {
-      const a = allAssignments.find(x => x.id === id);
-      if (!a) return;
+      const assignment = allAssignments.find((entry) => entry.id === id);
+      if (!assignment) return;
       openModal();
       document.getElementById('modalTitle').innerText = 'Edit Assignment';
-      document.getElementById('assignmentId').value = a.id;
-      document.getElementById('title').value = a.title;
+      document.getElementById('assignmentId').value = assignment.id;
+      document.getElementById('title').value = assignment.title;
       const sub = document.getElementById('subject');
-      sub.value = a.subject;
-      sub.dispatchEvent(new Event('change')); // Trigger auto-class logic
-      document.getElementById('className').value = a.class;
-      document.getElementById('dueDate').value = a.due_date;
-      document.getElementById('priority').value = a.priority;
-      document.getElementById('description').value = a.description;
-      document.getElementById('guruPengampu').value = a.guru_pengampu || '';
+      sub.value = assignment.subject;
+      sub.dispatchEvent(new Event('change'));
+      document.getElementById('className').value = assignment.class;
+      document.getElementById('dueDate').value = assignment.due_date;
+      document.getElementById('priority').value = assignment.priority;
+      document.getElementById('description').value = assignment.description;
+      document.getElementById('guruPengampu').value = assignment.guru_pengampu || '';
     }
 
     async function deleteAssignment(id) {
       if (!confirm("Are you sure?")) return;
-      await supabase.from('assignments').delete().eq('id', id);
+      window.db.deleteAssignment(id);
       await loadAssignments();
     }
 
     async function viewStatus(id, title) {
       document.getElementById('statusAssignmentTitle').innerText = title;
-      const { data, error } = await supabase.from('assignment_status').select('*, users(full_name, email)').eq('assignment_id', id);
-      if (error) return;
+      const rows = window.db.getStatusRowsForAssignment(id);
       const list = document.getElementById('statusList');
-      list.innerHTML = data.length === 0 ? '<p class="text-dim">No submissions yet.</p>' : `
+      list.innerHTML = rows.length === 0 ? '<p class="text-dim">No submissions yet.</p>' : `
                 <table>
                     <thead><tr><th>Student</th><th>Status</th></tr></thead>
-                    <tbody>${data.map(s => `<tr><td>${s.users.full_name || s.users.email}</td><td><span class="role-badge ${s.status === 'DONE' ? 'role-student' : 'role-admin'}">${s.status}</span></td></tr>`).join('')}</tbody>
+                    <tbody>${rows.map((row) => `<tr><td>${row.full_name || row.email}</td><td><span class="role-badge ${row.status === 'DONE' ? 'role-student' : 'role-admin'}">${row.status}</span></td></tr>`).join('')}</tbody>
                 </table>
             `;
       document.getElementById('statusModal').style.display = 'flex';

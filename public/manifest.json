@@ -1,0 +1,11 @@
+{
+  "name": "Assignly",
+  "short_name": "Assignly",
+  "description": "A web-based assignment management system for students, teachers, and class secretaries.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb"
+}

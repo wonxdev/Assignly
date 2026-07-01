@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register - Assignly</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 
 <body class="auth-page">
@@ -92,8 +92,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
+    <script src="../assets/js/app.js"></script>
 
     <script>
         // Wait for app.js to define window.MOVING_SUBJECTS
@@ -154,7 +153,7 @@
 
             try {
                 await registerUser(email, password, fullName, grade, classLetter, movingValues);
-                alert("Account Register Success!");
+                alert("Account created successfully!");
                 window.location.href = 'index.html';
             } catch (err) {
                 errorDiv.innerText = err.message;

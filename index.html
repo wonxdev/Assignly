@@ -4,75 +4,54 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - Assignly</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Assignly</title>
+  <link rel="stylesheet" href="assets/css/style.css">
 </head>
 
 <body class="auth-page">
   <div class="auth-card card animate-fade">
+
     <div class="auth-header">
       <a href="index.html" class="logo">Assignly</a>
-      <p>Welcome back! Please enter your details.</p>
+      <p>Assignment Management System</p>
     </div>
 
-    <form id="loginForm">
-      <div class="form-group">
-        <label for="email">Email Address</label>
-        <input type="email" id="email" placeholder="name@example.com" required autocomplete="email">
-      </div>
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
-      </div>
+    <div class="card" style="margin: 1rem 0; background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.2);">
+      <h3 style="margin-bottom:.5rem;">Portfolio Demo</h3>
+      <p style="margin:0;font-size:.9rem;">
+        This repository is running in <strong>Demo Mode</strong>.
+        Authentication and database functionality have been disabled for demonstration purposes.
+      </p>
+    </div>
 
-      <button type="submit" id="loginBtn" class="primary" style="width: 100%; margin-top: 1rem;">
-        Sign In
-      </button>
-      <div id="loginError" class="error-text" style="color: var(--danger); margin-top: 1rem; font-size: 0.875rem;">
-      </div>
-    </form>
+    <div class="form-group">
+      <label for="demoRole">View as</label>
+      <select id="demoRole">
+        <option value="student">Student</option>
+        <option value="staff">Staff (Teacher)</option>
+        <option value="admin">Administrator</option>
+      </select>
+    </div>
+
+    <button id="demoBtn" class="primary" style="width:100%; margin-top:1rem;">
+      Launch Demo
+    </button>
 
     <div class="auth-footer">
-      <p>Don't have an account? <a href="register.html" class="text-link">Create one</a></p>
+      <p>Original project: HTML • CSS • JavaScript • LocalStorage</p>
     </div>
+
   </div>
 
-  <!-- Supabase JS -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js"></script>
+  <script src="assets/js/app.js"></script>
+
   <script>
-    const form = document.getElementById('loginForm');
-    const errorDiv = document.getElementById('loginError');
-    const btn = document.getElementById('loginBtn');
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      btn.innerText = 'Signing in...';
-      btn.disabled = true;
-      errorDiv.innerText = '';
-
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-
-      try {
-        await loginUser(email, password);
-      } catch (err) {
-        errorDiv.innerText = err.message || 'Login failed. Please check credentials.';
-        btn.innerText = 'Sign In';
-        btn.disabled = false;
-      }
+    document.getElementById("demoBtn").addEventListener("click", () => {
+      const role = document.getElementById("demoRole").value;
+      enterDemo(role);
     });
-
-    window.onload = async () => {
-      if (typeof supabase !== 'undefined' && supabase.auth) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const profile = await checkAuth();
-          if (profile) roleRedirect(profile.role);
-        }
-      }
-    };
   </script>
+
 </body>
 
 </html>

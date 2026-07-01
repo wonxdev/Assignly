@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Assignly</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 
 <body>
@@ -110,8 +110,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
+    <script src="../assets/js/app.js"></script>
     <script>
         let allUsers = [];
 
@@ -123,9 +122,7 @@
         }
 
         async function loadUsers() {
-            const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
-            if (error) return;
-            allUsers = data;
+            allUsers = window.db.getUsers();
             render();
         }
 
@@ -135,9 +132,9 @@
             const search = document.getElementById('searchUser').value.toLowerCase();
             tbody.innerHTML = '';
 
-            const filtered = allUsers.filter(u => {
-                const queryMatch = (u.full_name?.toLowerCase().includes(search) || u.email.toLowerCase().includes(search));
-                const roleMatch = (role === 'all' || u.role === role);
+            const filtered = allUsers.filter((user) => {
+                const queryMatch = (user.full_name?.toLowerCase().includes(search) || user.email.toLowerCase().includes(search));
+                const roleMatch = (role === 'all' || user.role === role);
                 return queryMatch && roleMatch;
             });
 
@@ -146,32 +143,32 @@
                 return;
             }
 
-            filtered.forEach(u => {
+            filtered.forEach((user) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>
-                        <div style="font-weight: 600;">${u.full_name || "N/A"}</div>
-                        <div style="font-size: 0.75rem; color: var(--text-dim);">${u.email}</div>
+                        <div style="font-weight: 600;">${user.full_name || "N/A"}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-dim);">${user.email}</div>
                     </td>
-                    <td><span class="role-badge role-${u.role}">${u.role}</span></td>
-                    <td style="font-weight: 500;">${u.role === 'student' ? `${u.grade}-${u.class_letter}` : '-'}</td>
-                    <td><button onclick="openEditModal('${u.id}')" class="secondary" style="padding: 0.4rem 1rem; font-size: 0.75rem;">Edit</button></td>
+                    <td><span class="role-badge role-${user.role}">${user.role}</span></td>
+                    <td style="font-weight: 500;">${user.role === 'student' ? `${user.grade}-${user.class_letter}` : '-'}</td>
+                    <td><button onclick="openEditModal('${user.id}')" class="secondary" style="padding: 0.4rem 1rem; font-size: 0.75rem;">Edit</button></td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
         function openEditModal(id) {
-            const u = allUsers.find(x => x.id === id);
-            if (!u) return;
+            const user = allUsers.find((entry) => entry.id === id);
+            if (!user) return;
 
-            document.getElementById('editUserId').value = u.id;
-            document.getElementById('editFullName').value = u.full_name || '';
-            document.getElementById('editRole').value = u.role;
-            document.getElementById('editGrade').value = u.grade || '';
-            document.getElementById('editClassLetter').value = u.class_letter || '';
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editFullName').value = user.full_name || '';
+            document.getElementById('editRole').value = user.role;
+            document.getElementById('editGrade').value = user.grade || '';
+            document.getElementById('editClassLetter').value = user.class_letter || '';
 
-            toggleStudentFields(u.role);
+            toggleStudentFields(user.role);
             document.getElementById('editModal').style.display = 'flex';
         }
 
@@ -191,9 +188,9 @@
                 class_letter: role === 'student' ? document.getElementById('editClassLetter').value : null
             };
 
-            const { error } = await supabase.from('users').update(payload).eq('id', id);
-            if (error) alert(error.message);
-            else { closeModal(); await loadUsers(); }
+            window.db.updateUser(id, payload);
+            closeModal();
+            await loadUsers();
         };
 
         document.getElementById('filterRole').onchange = render;
