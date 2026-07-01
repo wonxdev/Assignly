@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Assignly</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="auth-page">
+  <div class="auth-card card animate-fade">
+    <div class="auth-header">
+      <a href="index.html" class="logo">Assignly</a>
+      <p>Welcome back! Please enter your details.</p>
+    </div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" placeholder="name@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+
+      <button type="submit" id="loginBtn" class="primary" style="width: 100%; margin-top: 1rem;">
+        Sign In
+      </button>
+      <div id="loginError" class="error-text" style="color: var(--danger); margin-top: 1rem; font-size: 0.875rem;">
+      </div>
+    </form>
+
+    <div class="auth-footer">
+      <p>Don't have an account? <a href="register.html" class="text-link">Create one</a></p>
+    </div>
+  </div>
+
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+  <script>
+    const form = document.getElementById('loginForm');
+    const errorDiv = document.getElementById('loginError');
+    const btn = document.getElementById('loginBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      btn.innerText = 'Signing in...';
+      btn.disabled = true;
+      errorDiv.innerText = '';
+
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        await loginUser(email, password);
+      } catch (err) {
+        errorDiv.innerText = err.message || 'Login failed. Please check credentials.';
+        btn.innerText = 'Sign In';
+        btn.disabled = false;
+      }
+    });
+
+    window.onload = async () => {
+      if (typeof supabase !== 'undefined' && supabase.auth) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const profile = await checkAuth();
+          if (profile) roleRedirect(profile.role);
+        }
+      }
+    };
+  </script>
+</body>
+
+</html>

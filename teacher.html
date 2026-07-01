@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Dashboard - Assignly</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <nav>
+    <div class="nav-container">
+      <a href="teacher.html" class="logo">Assignly Staff</a>
+      <div class="user-info">
+        <span id="userName" class="user-name">Loading...</span>
+        <button onclick="logout()" class="secondary logout-btn">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <header class="dashboard-header">
+      <div class="header-card card animate-fade"
+        style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h1>Management</h1>
+          <p>Assign tasks to Kelas Wajib or Moving Subject groups.</p>
+        </div>
+        <button onclick="openModal()" class="primary">+ New Assignment</button>
+      </div>
+
+      <div class="filter-panel animate-fade">
+        <div class="filter-group">
+          <label>Filter Subject</label>
+          <select id="filterSubject">
+            <option value="all">All Subjects</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Filter Target</label>
+          <select id="filterClass">
+            <option value="all">All Targets</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <div id="assignmentGrid" class="grid">
+      <div class="loading">Loading assignments...</div>
+    </div>
+  </main>
+
+  <!-- Assignment Modal -->
+  <div id="assignmentModal" class="modal-backdrop">
+    <div class="modal card">
+      <h2 id="modalTitle">Create Assignment</h2>
+      <form id="assignmentForm">
+        <input type="hidden" id="assignmentId">
+
+        <div class="form-group">
+          <label for="title">Title</label>
+          <input type="text" id="title" required placeholder="Homework Title">
+        </div>
+
+        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label for="subject">Subject</label>
+            <select id="subject" required>
+              <option value="" disabled selected>Select Subject</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="className">Class Target</label>
+            <select id="className" required>
+              <option value="" disabled selected>Select Target</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="guruField" class="form-group" style="display: none;">
+          <label for="guruPengampu">Teacher in Charge (Guru Pengampu)</label>
+          <input type="text" id="guruPengampu" placeholder="Optional for moving class">
+        </div>
+
+        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label for="dueDate">Due Date</label>
+            <input type="date" id="dueDate" required>
+          </div>
+          <div class="form-group">
+            <label for="priority">Priority</label>
+            <select id="priority">
+              <option value="Low">Low</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="High">High</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description</label>
+          <textarea id="description" rows="3" placeholder="Task details..."></textarea>
+        </div>
+
+        <div class="modal-actions" style="display: flex; gap: 1rem;">
+          <button type="submit" class="primary" style="flex: 2;">Save Assignment</button>
+          <button type="button" onclick="closeModal()" class="secondary" style="flex: 1;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Submissions Modal -->
+  <div id="statusModal" class="modal-backdrop">
+    <div class="modal card" style="max-width: 600px;">
+      <h2>Submissions</h2>
+      <p id="statusAssignmentTitle" style="margin-bottom: 1.5rem; font-weight: 600;"></p>
+      <div id="statusList" class="table-container"></div>
+      <div class="modal-actions" style="margin-top: 1.5rem;">
+        <button type="button" onclick="closeStatusModal()" class="secondary" style="width: 100%;">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+  <script>
+    let currentUser = null;
+    let allAssignments = [];
+
+    async function init() {
+      currentUser = await checkAuth('staff');
+      if (!currentUser) return;
+
+      document.getElementById('userName').innerText = currentUser.full_name;
+
+      // Setup Subject Dropdowns
+      const subSelect = document.getElementById('subject');
+      const filSub = document.getElementById('filterSubject');
+
+      const wajibOptGroup = document.createElement('optgroup');
+      wajibOptGroup.label = "KELAS WAJIB";
+      window.WAJIB_SUBJECTS.forEach(s => wajibOptGroup.appendChild(new Option(s, s)));
+      subSelect.appendChild(wajibOptGroup);
+
+      const movingOptGroup = document.createElement('optgroup');
+      movingOptGroup.label = "MOVING SUBJECTS";
+      window.MOVING_SUBJECTS.forEach(s => movingOptGroup.appendChild(new Option(s, s)));
+      subSelect.appendChild(movingOptGroup);
+
+      // Re-fill filter dropdown
+      [...window.WAJIB_SUBJECTS, ...window.MOVING_SUBJECTS].sort().forEach(s => filSub.add(new Option(s, s)));
+
+      // Setup Class Dropdowns
+      const clsSelect = document.getElementById('className');
+      const filCls = document.getElementById('filterClass');
+
+      [10, 11, 12].forEach(g => {
+        "ABCDEFGHIJ".split("").forEach(l => {
+          const c = `${g}-${l}`;
+          clsSelect.add(new Option(c, c));
+          filCls.add(new Option(c, c));
+        });
+      });
+      clsSelect.add(new Option("MOVING", "MOVING"));
+      filCls.add(new Option("MOVING", "MOVING"));
+
+      await loadAssignments();
+    }
+
+    // Logic: Auto-switch target based on subject
+    document.getElementById('subject').onchange = (e) => {
+      const val = e.target.value;
+      const clsSelect = document.getElementById('className');
+      const guruField = document.getElementById('guruField');
+
+      if (window.MOVING_SUBJECTS.includes(val)) {
+        clsSelect.value = "MOVING";
+        clsSelect.disabled = true; // Force moving
+        guruField.style.display = "block";
+      } else {
+        clsSelect.disabled = false;
+        if (clsSelect.value === "MOVING") clsSelect.value = ""; // Reset if it was moving
+        guruField.style.display = "none";
+      }
+    };
+
+    async function loadAssignments() {
+      const { data, error } = await supabase
+        .from('assignments')
+        .select('*')
+        .eq('teacher_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+      if (error) return;
+      allAssignments = data;
+      render();
+    }
+
+    function render() {
+      const grid = document.getElementById('assignmentGrid');
+      const sub = document.getElementById('filterSubject').value;
+      const cls = document.getElementById('filterClass').value;
+      grid.innerHTML = '';
+
+      const filtered = allAssignments.filter(a => {
+        return (sub === 'all' || a.subject === sub) && (cls === 'all' || a.class === cls);
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><p>No tasks found.</p></div>';
+        return;
+      }
+
+      filtered.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card assignment-card animate-fade';
+        card.innerHTML = `
+                    <div class="card-header">
+                        <div>
+                             <span class="subject-badge">${item.subject}</span>
+                             <h3 style="margin-top: 0.5rem;">${item.title}</h3>
+                        </div>
+                        <span class="priority-badge priority-${item.priority}">${item.priority}</span>
+                    </div>
+                    <div class="card-body">
+                         <p style="font-size: 0.85rem; margin-bottom: 0.5rem;">${item.description || "No description."}</p>
+                         <div style="font-size: 0.75rem; color: var(--primary); font-weight: 700;">TARGET: ${item.class}</div>
+                    </div>
+                    <div class="card-footer">
+                        <span style="font-size: 0.75rem;">DUE: ${formatDate(item.due_date)}</span>
+                        <div style="display: flex; gap: 0.4rem;">
+                            <button onclick="viewStatus('${item.id}', '${item.title}')" class="secondary" style="padding: 0.3rem 0.6rem; font-size: 0.7rem;">Status</button>
+                            <button onclick="editAssignment('${item.id}')" class="secondary" style="padding: 0.3rem 0.6rem; font-size: 0.7rem;">Edit</button>
+                            <button onclick="deleteAssignment('${item.id}')" class="danger" style="padding: 0.3rem 0.6rem; font-size: 0.7rem;">Del</button>
+                        </div>
+                    </div>
+                `;
+        grid.appendChild(card);
+      });
+    }
+
+    function openModal() {
+      document.getElementById('assignmentForm').reset();
+      document.getElementById('assignmentId').value = '';
+      document.getElementById('className').disabled = false;
+      document.getElementById('modalTitle').innerText = 'New Assignment';
+      document.getElementById('assignmentModal').style.display = 'flex';
+    }
+
+    function closeModal() { document.getElementById('assignmentModal').style.display = 'none'; }
+
+    document.getElementById('assignmentForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('assignmentId').value;
+      const clsSelect = document.getElementById('className');
+
+      const payload = {
+        teacher_id: currentUser.id,
+        title: document.getElementById('title').value,
+        subject: document.getElementById('subject').value,
+        class: clsSelect.value, // Even if disabled, value is preserved
+        due_date: document.getElementById('dueDate').value,
+        priority: document.getElementById('priority').value,
+        description: document.getElementById('description').value,
+        guru_pengampu: document.getElementById('guruPengampu').value
+      };
+
+      const { error } = id ?
+        await supabase.from('assignments').update(payload).eq('id', id) :
+        await supabase.from('assignments').insert(payload);
+
+      if (error) alert(error.message);
+      else { closeModal(); await loadAssignments(); }
+    };
+
+    function editAssignment(id) {
+      const a = allAssignments.find(x => x.id === id);
+      if (!a) return;
+      openModal();
+      document.getElementById('modalTitle').innerText = 'Edit Assignment';
+      document.getElementById('assignmentId').value = a.id;
+      document.getElementById('title').value = a.title;
+      const sub = document.getElementById('subject');
+      sub.value = a.subject;
+      sub.dispatchEvent(new Event('change')); // Trigger auto-class logic
+      document.getElementById('className').value = a.class;
+      document.getElementById('dueDate').value = a.due_date;
+      document.getElementById('priority').value = a.priority;
+      document.getElementById('description').value = a.description;
+      document.getElementById('guruPengampu').value = a.guru_pengampu || '';
+    }
+
+    async function deleteAssignment(id) {
+      if (!confirm("Are you sure?")) return;
+      await supabase.from('assignments').delete().eq('id', id);
+      await loadAssignments();
+    }
+
+    async function viewStatus(id, title) {
+      document.getElementById('statusAssignmentTitle').innerText = title;
+      const { data, error } = await supabase.from('assignment_status').select('*, users(full_name, email)').eq('assignment_id', id);
+      if (error) return;
+      const list = document.getElementById('statusList');
+      list.innerHTML = data.length === 0 ? '<p class="text-dim">No submissions yet.</p>' : `
+                <table>
+                    <thead><tr><th>Student</th><th>Status</th></tr></thead>
+                    <tbody>${data.map(s => `<tr><td>${s.users.full_name || s.users.email}</td><td><span class="role-badge ${s.status === 'DONE' ? 'role-student' : 'role-admin'}">${s.status}</span></td></tr>`).join('')}</tbody>
+                </table>
+            `;
+      document.getElementById('statusModal').style.display = 'flex';
+    }
+
+    function closeStatusModal() { document.getElementById('statusModal').style.display = 'none'; }
+
+    document.getElementById('filterSubject').onchange = render;
+    document.getElementById('filterClass').onchange = render;
+    window.onload = init;
+  </script>
+</body>
+
+</html>

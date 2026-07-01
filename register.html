@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Assignly</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="auth-page">
+    <div class="auth-card card animate-fade" style="max-width: 500px;">
+        <div class="auth-header">
+            <a href="index.html" class="logo">Assignly</a>
+            <p>Join our assignment tracking community.</p>
+        </div>
+
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="fullName">Full Name</label>
+                <input type="text" id="fullName" placeholder="John Doe" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" placeholder="john@example.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="At least 6 characters" required minlength="6">
+            </div>
+
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="grade">Grade</label>
+                    <select id="grade" required>
+                        <option value="10">Grade 10</option>
+                        <option value="11">Grade 11</option>
+                        <option value="12">Grade 12</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="classLetter">Kelas Wajib</label>
+                    <select id="classLetter" required>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                        <option value="F">F</option>
+                        <option value="G">G</option>
+                        <option value="H">H</option>
+                        <option value="I">I</option>
+                        <option value="J">J</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label style="margin-bottom: 0.75rem; display: block; font-weight: 700; color: var(--primary);">4 Unique
+                    Moving Subjects</label>
+                <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div class="filter-group">
+                        <label style="font-size: 0.65rem;">Moving Subject 1</label>
+                        <select class="moving-select" required id="ms1"></select>
+                    </div>
+                    <div class="filter-group">
+                        <label style="font-size: 0.65rem;">Moving Subject 2</label>
+                        <select class="moving-select" required id="ms2"></select>
+                    </div>
+                    <div class="filter-group">
+                        <label style="font-size: 0.65rem;">Moving Subject 3</label>
+                        <select class="moving-select" required id="ms3"></select>
+                    </div>
+                    <div class="filter-group">
+                        <label style="font-size: 0.65rem;">Moving Subject 4</label>
+                        <select class="moving-select" required id="ms4"></select>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" id="regBtn" class="primary" style="width: 100%; margin-top: 1rem;">
+                Create Account
+            </button>
+            <div id="regError" class="error-text"
+                style="color: var(--danger); margin-top: 1rem; text-align: center; font-size: 0.85rem;"></div>
+        </form>
+
+        <div class="auth-footer">
+            <p>Already have an account? <a href="index.html" class="text-link">Sign In</a></p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+
+    <script>
+        // Wait for app.js to define window.MOVING_SUBJECTS
+        const selects = Array.from(document.querySelectorAll('.moving-select'));
+
+        function updateOptions() {
+            const selectedValues = selects.map(s => s.value);
+            selects.forEach(s => {
+                const currentVal = s.value;
+                s.innerHTML = '<option value="" disabled selected>Select Subject</option>';
+
+                window.MOVING_SUBJECTS.forEach(sub => {
+                    const isSelectedElsewhere = selectedValues.includes(sub) && sub !== currentVal;
+                    const opt = document.createElement('option');
+                    opt.value = sub;
+                    opt.textContent = sub;
+                    if (isSelectedElsewhere) opt.disabled = true;
+                    if (sub === currentVal) opt.selected = true;
+                    s.appendChild(opt);
+                });
+            });
+        }
+
+        // Initialize after DOM and script load
+        window.addEventListener('DOMContentLoaded', () => {
+            updateOptions();
+            selects.forEach(s => s.addEventListener('change', updateOptions));
+        });
+
+        const form = document.getElementById('registerForm');
+        const btn = document.getElementById('regBtn');
+        const errorDiv = document.getElementById('regError');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            btn.disabled = true;
+            btn.innerText = 'Creating account...';
+            errorDiv.innerText = '';
+
+            const movingValues = selects.map(s => s.value);
+            if (movingValues.some(v => !v)) {
+                errorDiv.innerText = "Please select all 4 moving subjects.";
+                btn.disabled = false; btn.innerText = 'Create Account';
+                return;
+            }
+
+            if (new Set(movingValues).size !== 4) {
+                errorDiv.innerText = "Subjects must be unique.";
+                btn.disabled = false; btn.innerText = 'Create Account';
+                return;
+            }
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const fullName = document.getElementById('fullName').value;
+            const grade = document.getElementById('grade').value;
+            const classLetter = document.getElementById('classLetter').value;
+
+            try {
+                await registerUser(email, password, fullName, grade, classLetter, movingValues);
+                alert("Account Register Success!");
+                window.location.href = 'index.html';
+            } catch (err) {
+                errorDiv.innerText = err.message;
+                btn.disabled = false; btn.innerText = 'Create Account';
+            }
+        });
+    </script>
+</body>
+
+</html>

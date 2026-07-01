@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Assignly</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="admin.html" class="logo">Assignly Admin</a>
+            <div class="user-info">
+                <span id="userName" class="user-name">Loading...</span>
+                <button onclick="logout()" class="secondary logout-btn">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <header class="dashboard-header">
+            <div class="header-card card animate-fade">
+                <h1>User Administration</h1>
+                <p>Manage roles, permissions, and student records system-wide.</p>
+            </div>
+
+            <div class="filter-panel animate-fade">
+                <div class="filter-group">
+                    <label for="filterRole">System Role</label>
+                    <select id="filterRole">
+                        <option value="all">All Roles</option>
+                        <option value="student">Student</option>
+                        <option value="staff">Staff</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="filter-group" style="flex: 2;">
+                    <label for="searchUser">Search Directory</label>
+                    <input type="text" id="searchUser" placeholder="Email, name or class...">
+                </div>
+            </div>
+        </header>
+
+        <div class="card animate-fade">
+            <div class="table-container">
+                <table class="user-table">
+                    <thead>
+                        <tr>
+                            <th>Identitiy</th>
+                            <th>Role</th>
+                            <th>Class</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody">
+                        <tr>
+                            <td colspan="4" style="text-align: center;">Loading user records...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Edit User Modal -->
+    <div id="editModal" class="modal-backdrop">
+        <div class="modal card">
+            <h2>Manage Profile</h2>
+            <form id="editUserForm">
+                <input type="hidden" id="editUserId">
+
+                <div class="form-group">
+                    <label for="editFullName">Full Name</label>
+                    <input type="text" id="editFullName" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editRole">System Role</label>
+                    <select id="editRole" required>
+                        <option value="student">Student</option>
+                        <option value="staff">Staff</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+
+                <div id="studentDetailFields"
+                    style="display: none; border-top: 1px solid var(--card-border); padding-top: 1rem; margin-top: 1rem;">
+                    <p
+                        style="font-size: 0.75rem; font-weight: 700; color: var(--primary); margin-bottom: 1rem; text-transform: uppercase;">
+                        Student Information</p>
+                    <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label for="editGrade">Grade</label>
+                            <input type="text" id="editGrade" placeholder="10">
+                        </div>
+                        <div class="form-group">
+                            <label for="editClassLetter">Class Letter</label>
+                            <input type="text" id="editClassLetter" placeholder="A">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions" style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="submit" class="primary" style="flex: 2;">Apply Changes</button>
+                    <button type="button" onclick="closeModal()" class="secondary" style="flex: 1;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+    <script>
+        let allUsers = [];
+
+        async function init() {
+            const profile = await checkAuth('admin');
+            if (!profile) return;
+            document.getElementById('userName').innerText = profile.full_name;
+            await loadUsers();
+        }
+
+        async function loadUsers() {
+            const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+            if (error) return;
+            allUsers = data;
+            render();
+        }
+
+        function render() {
+            const tbody = document.getElementById('userTableBody');
+            const role = document.getElementById('filterRole').value;
+            const search = document.getElementById('searchUser').value.toLowerCase();
+            tbody.innerHTML = '';
+
+            const filtered = allUsers.filter(u => {
+                const queryMatch = (u.full_name?.toLowerCase().includes(search) || u.email.toLowerCase().includes(search));
+                const roleMatch = (role === 'all' || u.role === role);
+                return queryMatch && roleMatch;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-dim);">No users found.</td></tr>';
+                return;
+            }
+
+            filtered.forEach(u => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <div style="font-weight: 600;">${u.full_name || "N/A"}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-dim);">${u.email}</div>
+                    </td>
+                    <td><span class="role-badge role-${u.role}">${u.role}</span></td>
+                    <td style="font-weight: 500;">${u.role === 'student' ? `${u.grade}-${u.class_letter}` : '-'}</td>
+                    <td><button onclick="openEditModal('${u.id}')" class="secondary" style="padding: 0.4rem 1rem; font-size: 0.75rem;">Edit</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openEditModal(id) {
+            const u = allUsers.find(x => x.id === id);
+            if (!u) return;
+
+            document.getElementById('editUserId').value = u.id;
+            document.getElementById('editFullName').value = u.full_name || '';
+            document.getElementById('editRole').value = u.role;
+            document.getElementById('editGrade').value = u.grade || '';
+            document.getElementById('editClassLetter').value = u.class_letter || '';
+
+            toggleStudentFields(u.role);
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+        function toggleStudentFields(role) { document.getElementById('studentDetailFields').style.display = role === 'student' ? 'block' : 'none'; }
+
+        document.getElementById('editRole').onchange = (e) => toggleStudentFields(e.target.value);
+
+        document.getElementById('editUserForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editUserId').value;
+            const role = document.getElementById('editRole').value;
+            const payload = {
+                full_name: document.getElementById('editFullName').value,
+                role: role,
+                grade: role === 'student' ? document.getElementById('editGrade').value : null,
+                class_letter: role === 'student' ? document.getElementById('editClassLetter').value : null
+            };
+
+            const { error } = await supabase.from('users').update(payload).eq('id', id);
+            if (error) alert(error.message);
+            else { closeModal(); await loadUsers(); }
+        };
+
+        document.getElementById('filterRole').onchange = render;
+        document.getElementById('searchUser').oninput = render;
+        window.onload = init;
+    </script>
+</body>
+
+</html>

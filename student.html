@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard - Assignly</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <nav>
+    <div class="nav-container">
+      <a href="student.html" class="logo">Assignly</a>
+      <div class="user-info">
+        <div class="user-details">
+          <span id="userName" class="user-name">Loading...</span>
+          <span id="userClass" class="user-class"></span>
+        </div>
+        <button onclick="logout()" class="secondary logout-btn">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <header class="dashboard-header">
+      <div class="header-card card animate-fade">
+        <h1>My Assignments</h1>
+        <p>Tasks for your Kelas Wajib and chosen Moving Subjects.</p>
+        <div id="movingBadges" class="badge-row"></div>
+      </div>
+
+      <div class="filter-panel animate-fade">
+        <div class="filter-group">
+          <label>Filter Status</label>
+          <select id="statusFilter">
+            <option value="all">All Assignments</option>
+            <option value="NOT DONE">Pending</option>
+            <option value="DONE">Completed</option>
+          </select>
+        </div>
+        <div style="flex: 1; text-align: right; color: var(--text-dim); font-size: 0.85rem;" id="taskCount">
+          0 tasks
+        </div>
+      </div>
+    </header>
+
+    <div id="assignmentGrid" class="grid">
+      <div class="loading">Fetching tasks...</div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+  <script>
+    let currentUser = null;
+    let assignments = [];
+
+    async function init() {
+      currentUser = await checkAuth('student');
+      if (!currentUser) return;
+
+      document.getElementById('userName').innerText = currentUser.full_name;
+      document.getElementById('userClass').innerText = `KELAS WAJIB: ${currentUser.grade}-${currentUser.class_letter}`;
+
+      const moving = [currentUser.moving1_subject, currentUser.moving2_subject, currentUser.moving3_subject, currentUser.moving4_subject].filter(Boolean);
+      const badgeContainer = document.getElementById('movingBadges');
+      badgeContainer.innerHTML = moving.map(s => `<span class="badge active">${s}</span>`).join('');
+
+      await loadData();
+    }
+
+    async function loadData() {
+      // RLS handles the complex visibility:
+      // assignment.class == (grade-class_letter) OR assignment.subject IN (moving_subjects)
+      const { data, error } = await supabase
+        .from('assignments')
+        .select(`*, assignment_status!left(*)`)
+        .order('due_date', { ascending: true });
+
+      if (error) return;
+      assignments = data;
+      render();
+    }
+
+    function render() {
+      const grid = document.getElementById('assignmentGrid');
+      const filter = document.getElementById('statusFilter').value;
+      grid.innerHTML = '';
+
+      const filtered = assignments.filter(a => {
+        const status = a.assignment_status?.[0]?.status || 'NOT DONE';
+        return filter === 'all' || status === filter;
+      });
+
+      document.getElementById('taskCount').innerText = `${filtered.length} task${filtered.length !== 1 ? 's' : ''}`;
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div class="card animate-fade" style="grid-column: 1 / -1; padding: 4rem; text-align: center; opacity: 0.6;"><p>You are all caught up!</p></div>';
+        return;
+      }
+
+      filtered.forEach((item, index) => {
+        const status = item.assignment_status?.[0]?.status || 'NOT DONE';
+        const isDone = status === 'DONE';
+
+        const card = document.createElement('div');
+        card.className = `card assignment-card animate-fade ${isDone ? 'status-done' : 'status-not-done'}`;
+        card.style.animationDelay = `${index * 0.05}s`;
+
+        // Logic: Determine if this is a moving or wajib assignment visual-wise
+        const isMoving = window.MOVING_SUBJECTS.includes(item.subject);
+
+        card.innerHTML = `
+                    <div class="card-header">
+                        <div>
+                            <span class="subject-badge" style="background: ${isMoving ? 'rgba(0, 162, 255, 0.15)' : 'rgba(157, 80, 187, 0.15)'}; color: ${isMoving ? '#0ea5e9' : 'var(--primary)'}">
+                                ${item.subject} ${isMoving ? '(Moving)' : ''}
+                            </span>
+                            <h3 style="margin-top: 0.5rem;">${item.title}</h3>
+                        </div>
+                        <span class="priority-badge priority-${item.priority}">${item.priority}</span>
+                    </div>
+                    <div class="card-body">
+                        <p style="font-size: 0.9rem; margin-bottom: 1rem;">${item.description || "No description."}</p>
+                        ${item.guru_pengampu ? `<p style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Teacher: ${item.guru_pengampu}</p>` : ''}
+                    </div>
+                    <div class="card-footer">
+                        <div class="meta-info">
+                            <p style="font-size: 0.75rem; font-weight: 700;">DUE: ${formatDate(item.due_date)}</p>
+                            <span class="status-indicator ${isDone ? 'done' : 'pending'}" style="font-size: 0.75rem;">
+                                ${isDone ? '✓ Completed' : '○ Pending'}
+                            </span>
+                        </div>
+                        <button onclick="toggleStatus('${item.id}', '${isDone ? 'NOT DONE' : 'DONE'}')" class="${isDone ? 'secondary' : 'primary'}" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                            ${isDone ? 'Undo' : 'Done'}
+                        </button>
+                    </div>
+                `;
+        grid.appendChild(card);
+      });
+    }
+
+    async function toggleStatus(id, newStatus) {
+      const { error } = await supabase.from('assignment_status').upsert({
+        assignment_id: id,
+        student_id: currentUser.id,
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      });
+      if (error) alert(error.message);
+      else await loadData();
+    }
+
+    document.getElementById('statusFilter').onchange = render;
+    window.onload = init;
+  </script>
+</body>
+
+</html>
