@@ -1,4 +1,4 @@
-# Assignly
+# Assignly - Portfolio Demo
 A web-based assignment management system developed as a Senior High School Informatics project. Assignly centralizes assignment tracking for students, teachers, and administrators, reducing repetitive announcements and making assignment information easier to access.
 
 > **Portfolio Version:** This repository contains a frontend-only demonstration that runs entirely in the browser using LocalStorage. The original project was built with Supabase for authentication and database services.
