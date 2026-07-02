@@ -3,9 +3,12 @@ All notable changes to this project are documented in this file.
 The format is based on Keep a Changelog and follows Semantic Versioning.
 
 ---
+## Unreleased
+### Changed
+- Moved `README.md` and `CHANGELOG.md` into the `docs/` directory.
+- Moved the project `LICENSE` into the `docs/` directory as part of the repository reorganization.
 
 ## [2.0.0] - 2026-07-01
-
 ### Added
 - Frontend-only demo mode powered by `localStorage`
 - Persistent local demo database (`assignly-db`)
@@ -32,7 +35,6 @@ The format is based on Keep a Changelog and follows Semantic Versioning.
 ---
 
 ## [1.0.0] - 2026-01-27
-
 ### Added
 - User authentication
 - Role-based access control
