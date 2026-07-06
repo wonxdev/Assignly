@@ -75,16 +75,20 @@ function formatDate(dateString) {
   });
 }
 
+function siteRoot() {
+  return window.location.pathname.includes("/pages/") ? "../" : "";
+}
+
 function roleRedirect(role) {
   switch (role) {
     case "admin":
-      window.location.href = "pages/admin.html";
+      window.location.href = `${siteRoot()}pages/admin.html`;
       break;
     case "staff":
-      window.location.href = "pages/teacher.html";
+      window.location.href = `${siteRoot()}pages/teacher.html`;
       break;
     default:
-      window.location.href = "pages/student.html";
+      window.location.href = `${siteRoot()}pages/student.html`;
       break;
   }
 }
@@ -455,7 +459,7 @@ async function checkAuth(requiredRole = null) {
   const demoUser = getDemoUser();
 
   if (!demoUser) {
-    window.location.href = "index.html";
+    window.location.href = `${siteRoot()}index.html`;
     return null;
   }
 
@@ -469,7 +473,7 @@ async function checkAuth(requiredRole = null) {
 
 async function logout() {
   localStorage.removeItem("assignly-demo-role");
-  window.location.href = "index.html";
+  window.location.href = `${siteRoot()}index.html`;
 }
 
 async function loginUser() {
